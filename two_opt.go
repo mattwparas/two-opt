@@ -103,16 +103,25 @@ func (t *TSP) pprint(){
 	fmt.Println(nodeNumbers)
 }
 
+// func (t *TSP)
+
 
 func main() {
 
-	nodeCount := 150
+	nodeCount := 500
 	newTour := make([]Node, nodeCount)
 
 	for i:=0; i < nodeCount; i++{
 		n := Node{NodeNumber: i}
 		newTour[i] = n
 	}
+
+	list := rand.Perm(25)
+	for i, _ := range list {
+	    list[i]++
+	}
+	
+	fmt.Println(list)
 
 	distMat := generate_matrix(nodeCount, 1000, true)
 
