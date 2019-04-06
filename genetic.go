@@ -3,20 +3,22 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"time"
 	"sort"
+	"time"
 )
 
+// Node represents an individual city
 type Node struct {
 	NodeNumber int
 }
 
+// TSP represents a solution
 type TSP struct {
 	Tour           []Node
 	DistanceMatrix [][]float64
 	NumberOfNodes  int
-	RouteDistance float64
-	Fitness float64
+	RouteDistance  float64
+	Fitness        float64
 }
 
 func min(a, b int) int {
@@ -33,7 +35,7 @@ func max(a, b int) int {
 	return b
 }
 
-func (t *TSP) calculate_fitness() float64 {
+func (t *TSP) calculateFitness() float64 {
 	if t.Fitness == 0 {
 		t.Fitness = 1 / t.RouteDistance
 	} else {
@@ -42,7 +44,7 @@ func (t *TSP) calculate_fitness() float64 {
 	return t.Fitness
 }
 
-func (t *TSP) calculate_objective() float64 {
+func (t *TSP) calculateObjective() float64 {
 	// initialize cost of going from last index to first index
 	node1 := t.Tour[0].NodeNumber
 	node2 := t.Tour[len(t.Tour)-1].NodeNumber
@@ -57,8 +59,7 @@ func (t *TSP) calculate_objective() float64 {
 	return cost
 }
 
-func generate_matrix(size int, maxDistance float64, symmetric bool) [][]float64 {
-	rand.Seed(27)
+func generateMatrix(size int, maxDistance float64, symmetric bool) [][]float64 {
 	// Populate matrix with random values
 	grid := make([][]float64, size)
 	for i := 0; i < size; i++ {
@@ -70,7 +71,7 @@ func generate_matrix(size int, maxDistance float64, symmetric bool) [][]float64 
 	}
 
 	if symmetric == true {
-		// Make matrix symmetrick
+		// Make matrix symmetric
 		for i := 0; i < size; i++ {
 			for j := 0; j < size; j++ {
 				grid[i][j] = grid[j][i]
@@ -81,8 +82,20 @@ func generate_matrix(size int, maxDistance float64, symmetric bool) [][]float64 
 	return grid
 }
 
+func (t *TSP) marginalCost(i int) float64 {
+	nodeBefore := i - 1
+	node := i
+	nodeAfter := (i + 1) % t.NumberOfNodes
+	if i == 0 {
+		nodeBefore = t.NumberOfNodes - 1
+	}
+	marginalCost := t.DistanceMatrix[t.Tour[nodeBefore].NodeNumber][t.Tour[node].NodeNumber]
+	marginalCost += t.DistanceMatrix[t.Tour[node].NodeNumber][t.Tour[nodeAfter].NodeNumber]
+	return marginalCost
+}
+
 func (t *TSP) swaps() {
-	bestObjective := t.calculate_objective()
+	// bestObjective := t.calculateObjective()
 	tourLength := t.NumberOfNodes
 
 	for i := 0; i < tourLength; i++ {
@@ -90,28 +103,28 @@ func (t *TSP) swaps() {
 			node1 := t.Tour[i]
 			node2 := t.Tour[j]
 
+			// cost from i-1 to i and i to i + 1
+			// cost from j-1 to j and j to j + 1
+			currentCost := t.marginalCost(i) + t.marginalCost(j)
+
 			t.Tour[i] = node2
 			t.Tour[j] = node1
 
-			sampleObjective := t.calculate_objective()
-
-			if sampleObjective < bestObjective {
-				bestObjective = sampleObjective
-			} else {
+			newCost := t.marginalCost(i) + t.marginalCost(j)
+			if newCost > currentCost {
 				t.Tour[i] = node1
 				t.Tour[j] = node2
 			}
-
 		}
 	}
 }
 
 func (t *TSP) performSwaps() {
-	lastObjective := t.calculate_objective()
-	currentObjective := t.calculate_objective()
+	lastObjective := t.calculateObjective()
+	currentObjective := t.calculateObjective()
 	for {
 		t.swaps()
-		currentObjective = t.calculate_objective()
+		currentObjective = t.calculateObjective()
 		if currentObjective == lastObjective {
 			break
 		} else {
@@ -129,7 +142,7 @@ func (t *TSP) pprint() {
 }
 
 func (t *TSP) shuffle() {
-	// rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 	newIndices := rand.Perm(t.NumberOfNodes)
 	newTour := make([]Node, t.NumberOfNodes)
 	for i := 0; i < t.NumberOfNodes; i++ {
@@ -142,7 +155,7 @@ func (t *TSP) shuffle() {
 func (t *TSP) solve() {
 	// t.shuffle()
 	t.performSwaps()
-	t.RouteDistance = t.calculate_objective()
+	t.RouteDistance = t.calculateObjective()
 }
 
 func buildTSPInstance(num int, distMat [][]float64) TSP {
@@ -154,34 +167,27 @@ func buildTSPInstance(num int, distMat [][]float64) TSP {
 		newTour[i] = n
 	}
 
-	// distMat := generate_matrix(nodeCount, 1000, true)
 	tspInstance := TSP{Tour: newTour,
 		DistanceMatrix: distMat,
 		NumberOfNodes:  nodeCount,
-		RouteDistance: 0,
-		Fitness: 0}
+		RouteDistance:  0,
+		Fitness:        0}
 
 	// Shuffle for initial fitness
 	tspInstance.shuffle()
-
-	tspInstance.calculate_objective()
-	tspInstance.calculate_fitness()
-
-	// tspInstance.solve()
-
+	tspInstance.calculateObjective()
+	tspInstance.calculateFitness()
 	return tspInstance
 }
 
 func initialPopulation(cityCount int, popSize int) []TSP {
-	distMat := generate_matrix(cityCount, 300, true)
+	distMat := generateMatrix(cityCount, 300, true)
 	initialPop := make([]TSP, popSize)
 	for i := 0; i < popSize; i++ {
-		rand.Seed(int64(i))
 		initialPop[i] = buildTSPInstance(cityCount, distMat)
 	}
 	return initialPop
 }
-
 
 func rankRoutes(population []TSP) []TSP {
 	sort.Slice(population, func(i, j int) bool {
@@ -192,44 +198,13 @@ func rankRoutes(population []TSP) []TSP {
 
 // TODO
 func matingPool(population []TSP, eliteSize int) []TSP {
-
-	var matingPool []TSP
-
-	cumSum := make([]float64, len(population))
-	cumPerc := make([]float64, len(population))
-	cumSum[0] = 1 / float64(population[0].RouteDistance)
-	totalSum := 1 / float64(population[0].RouteDistance)
-
-	// calculate the cumulative sum of fitness
-	for i:=1; i < len(population); i++ {
-		totalSum += 1.0 / float64(population[0].RouteDistance)
-		cumSum[i] = totalSum
+	matingPool := population[0:eliteSize]
+	samplingElites := make([]TSP, len(population)-eliteSize)
+	for i := 0; i < len(population)-eliteSize; i++ {
+		pick := rand.Intn(eliteSize)
+		samplingElites[i] = matingPool[pick]
 	}
-
-	for i:=0; i < len(population); i++ {
-		cumPerc[i] = float64(cumSum[i]) / float64(totalSum)
-		// fmt.Println(cumSum[i])
-		// fmt.Println(cumPerc[i])
-	}
-
-	matingPool = append(matingPool, population[0:eliteSize]...)
-
-	// Double Picking here is bad (maybe?)
-	for i:=0; i < len(population) - eliteSize; i++ {
-		pick := rand.Float64()
-		for j:=0; j < len(population); j++ {
-			if pick <= cumPerc[j] {
-				matingPool = append(matingPool, population[j])
-				break
-			}
-		}
-	}
-
-	// for i:=0; i < len(population) - eliteSize; i++ {
-	// 	matingPool = append(matingPool, population[rand.Intn(len(population) - eliteSize)])
-	// }
-
-
+	matingPool = append(matingPool, samplingElites...)
 	return matingPool
 }
 
@@ -254,7 +229,6 @@ func breed(parent1 TSP, parent2 TSP) TSP {
 	// fill in the gaps with everything else
 	for i := 0; i < tourLength; i++ {
 		if nodeMap[parent2.Tour[i].NodeNumber] == false {
-			// child.Tour[i] = parent2.Tour[i]
 			child2Tour = append(child2Tour, parent2.Tour[i])
 		}
 	}
@@ -262,19 +236,18 @@ func breed(parent1 TSP, parent2 TSP) TSP {
 	child := TSP{Tour: append(child1Tour, child2Tour...),
 		DistanceMatrix: parent1.DistanceMatrix,
 		NumberOfNodes:  tourLength,
-		RouteDistance: 0,
-		Fitness: 0}
+		RouteDistance:  0,
+		Fitness:        0}
 
-	child.calculate_objective()
-	child.calculate_fitness()
-
+	child.calculateObjective()
+	child.calculateFitness()
 	return child
 }
 
 func breedPopulation(matingPool []TSP, eliteSize int) []TSP {
 	var children []TSP
 	length := len(matingPool) - eliteSize
-	//rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 	newIndices := rand.Perm(len(matingPool))
 	newPool := make([]TSP, len(matingPool))
 	for i := 0; i < len(newPool); i++ {
@@ -283,33 +256,29 @@ func breedPopulation(matingPool []TSP, eliteSize int) []TSP {
 	}
 	children = append(children, matingPool[0:eliteSize]...)
 	for i := 0; i < length; i++ {
-		child := breed(newPool[i], newPool[len(matingPool) - i - 1])
+		child := breed(newPool[i], newPool[len(matingPool)-i-1])
 		children = append(children, child)
 	}
 	return children
 }
 
-func (individual *TSP) mutate(mutationRate float64) {
-	for i := 0; i < individual.NumberOfNodes; i++ {
-		if rand.Float64() < mutationRate{
-			j := rand.Intn(individual.NumberOfNodes)
-			
-			node1 := individual.Tour[i]
-			node2 := individual.Tour[j]
+func (t *TSP) mutate(mutationRate float64) {
+	for i := 0; i < t.NumberOfNodes; i++ {
+		if rand.Float64() < mutationRate {
+			j := rand.Intn(t.NumberOfNodes)
 
-			individual.Tour[i] = node2
-			individual.Tour[j] = node1
+			node1 := t.Tour[i]
+			node2 := t.Tour[j]
+
+			t.Tour[i] = node2
+			t.Tour[j] = node1
 		}
 	}
 }
 
 func mutatePopulation(population []TSP, mutationRate float64) []TSP {
 	for i := 0; i < len(population); i++ {
-		// population[i].mutate(mutationRate)
-		if rand.Float64() < mutationRate {
-			population[i].solve()
-		}
-		// population[i].solve()
+		population[i].mutate(mutationRate)
 	}
 	return population
 }
@@ -323,46 +292,23 @@ func nextGeneration(currentGen []TSP, eliteSize int, mutationRate float64) []TSP
 }
 
 func geneticAlgorithm(popSize int, eliteSize int, mutationRate float64, generations int) TSP {
-	rand.Seed(27)
-	pop := initialPopulation(100, popSize)
+	pop := initialPopulation(25, popSize)
 	bestInitialDistance := rankRoutes(pop)[0].RouteDistance
-	// initialBest := rankRoutes(pop)[0]
-	// initialBest.solve()
 	fmt.Println("Initial Distance: ", bestInitialDistance)
-	// fmt.Println("Initial best 2 opt: ", initialBest.RouteDistance)
 
 	for i := 0; i < generations; i++ {
-		// debugGeneration(pop)
 		pop = nextGeneration(pop, eliteSize, mutationRate)
-		// fmt.Println(pop[0].RouteDistance)
-		// fmt.Println(i)
 	}
 
 	bestTSP := rankRoutes(pop)[0]
-	// fmt.Println("Best Distance before 2 opt: ", bestTSP.RouteDistance)
-	// bestTSP.solve()
 	fmt.Println("Final Distance: ", bestTSP.RouteDistance)
-	// bestTSP.pprint()
+	bestTSP.pprint()
 	return bestTSP
 }
 
 func main() {
 	start := time.Now()
-	geneticAlgorithm(1000, 200, 0.01, 150)
+	geneticAlgorithm(500, 30, 0.01, 1000)
 	elapsed := time.Since(start)
 	fmt.Println("Genetic Algorithm took: ", elapsed)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
